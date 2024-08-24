@@ -1,34 +1,54 @@
-import logging
-import logging.handlers
-import os
-
+from time import time as t
 import requests
+from rich import print
+import sys
+import os
+from os import environ
+from dotenv import load_dotenv
 
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-logger_file_handler = logging.handlers.RotatingFileHandler(
-    "status.log",
-    maxBytes=1024 * 1024,
-    backupCount=1,
-    encoding="utf8",
-)
-formatter = logging.Formatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
-logger_file_handler.setFormatter(formatter)
-logger.addHandler(logger_file_handler)
+load_dotenv()
 
-try:
-    SOME_SECRET = os.environ["SOME_SECRET"]
-except KeyError:
-    SOME_SECRET = "Token not available!"
-    #logger.info("Token not available!")
-    #raise
+API = environ['HF_TOKEN']
+URL = 'https://dhruvkadam-test-public.hf.space/generate-text'
 
+# Add the parent directory to the path
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-if __name__ == "__main__":
-    logger.info(f"Token value: {SOME_SECRET}")
+from Cache import cache_to_json
 
-    r = requests.get('https://weather.talkpython.fm/api/weather/?city=Berlin&country=DE')
-    if r.status_code == 200:
-        data = r.json()
-        temperature = data["forecast"]["temp"]
-        logger.info(f'Weather in Berlin: {temperature}')
+rq = requests.session()
+
+def format_prompt(message, custom_instructions=None):
+    prompt = ""
+    if custom_instructions:
+        prompt += f"[INST] {custom_instructions} [/INST]"
+    prompt += f"[INST] {message} [/INST]"
+    return prompt
+
+# Updated instructions for a chatbot-like behavior
+instructions_chatbot = """
+You are Dark, an advanced AI chatbot created by Dhruv Kadam, a talented 17-year-old developer with deep expertise in artificial intelligence and machine learning. You are designed to assist with tasks, answer questions, and engage in meaningful conversations. Your responses should be in English only, and you are continually learning and evolving thanks to Dhruv's ongoing development efforts.
+"""
+
+template_chatbot = """Input: {prompt}
+Response: 
+"""
+
+def Mixtarl7B(prompt, instructions, temperature=0.5, max_new_token=1000, top_p=0.95, repition_penalty=1.0):
+    data = {'prompt': prompt,
+            'instructions': instructions,
+            'api_key': API}
+
+    response = rq.post(URL, json=data)
+    res = response.json().get('response', 'Sorry, I didn’t get that.')
+    return res
+
+def chatbot_conversation(query):
+    # Creating a clear and direct prompt for the model
+    prompt = f"Input: {query}\nResponse:"
+    response = Mixtarl7B(prompt, instructions_chatbot)
+    
+    # Debugging: print the prompt and the respons
+    print("Dark :", response)
+    
+    return response
